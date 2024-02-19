@@ -17,9 +17,9 @@ import (
 )
 
 type FileEntry struct {
-	Offset     string `json:"offset"`
-	Size       int    `json:"size"`
-	Executable bool   `json:"executable"`
+	Offset string `json:"offset"`
+	Size   int    `json:"size"`
+	// Executable bool   `json:"executable"`
 	// TODO: integrity
 }
 
@@ -33,7 +33,7 @@ func init() {
 }
 
 var outputFlag = flag.String("output", "output.asar", "output asar filename")
-var sourceFlag = flag.String("source", "/home/informatic/temp", "source path to pack")
+var sourceFlag = flag.String("source", "source", "source path to pack")
 
 func main() {
 	klog.Infof("preparing index...")
@@ -45,7 +45,7 @@ func main() {
 
 	walkRoot, err := filepath.EvalSymlinks(*sourceFlag)
 	if err != nil {
-		klog.Errorf("unable to eval source: %v", err)
+		klog.Fatalf("unable to eval source: %v", err)
 	}
 
 	var filesToDump []string
@@ -65,13 +65,9 @@ func main() {
 		} else if info.Mode().IsRegular() {
 			p := strings.TrimPrefix(fullPath, walkRoot+"/")
 
-			//fmt.Println(p)
-
-			parts := strings.Split(filepath.Dir(p), "/")
-			// fmt.Println(p)
-
+			parts := strings.Split(p, "/")
 			ptr := &index
-			for _, part := range parts {
+			for _, part := range parts[:len(parts)-1] {
 				if ptr.Files[part] == nil {
 					ptr.Files[part] = DirectoryEntry{
 						Files: make(map[string]interface{}),
@@ -99,13 +95,12 @@ func main() {
 	})
 
 	if err != nil {
-		klog.Errorf("error occured during walk: %v", err)
+		klog.Fatalf("error occured during walk: %v", err)
 	}
 
-	// fmt.Printf("top level files count: %d; files to dump: %d\n", len(index.Files), len(filesToDump))
 	data, err := json.Marshal(index)
 	if err != nil {
-		klog.Errorf("unable to generate index: %v", err)
+		klog.Fatalf("unable to generate index: %v", err)
 	}
 
 	fd, err := os.Create(*outputFlag)
