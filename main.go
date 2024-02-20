@@ -109,18 +109,28 @@ func main() {
 	}
 	defer fd.Close()
 
+	// pickle encoded values need to be 4-bytes aligned - calculate extra bytes
+	// padding we need to leave in header json value data
 	paddingLength := (4 - len(data)%4) % 4
 
 	klog.Infof("index built in %s (%d bytes, %d padding)", time.Since(ts), len(data), paddingLength)
 
-	preheader := make([]byte, 16+paddingLength)
+	preheader := make([]byte, 16)
+
+	// pickle uint32 (uint32_t size, uint32_t value)
 	binary.LittleEndian.PutUint32(preheader[0:4], 4)
 	binary.LittleEndian.PutUint32(preheader[4:8], uint32(len(data)+paddingLength+8))
+
+	// pickle string (uint32_t size, char[] value, char[paddingLength] padding
 	binary.LittleEndian.PutUint32(preheader[8:12], uint32(len(data)+paddingLength+4))
 	binary.LittleEndian.PutUint32(preheader[12:16], uint32(len(data)))
 
 	fd.Write(preheader)
 	fd.Write(data)
+
+	if paddingLength > 0 {
+		fd.Write(make([]byte, paddingLength))
+	}
 
 	for idx, file := range filesToDump {
 		infd, err := os.Open(file)
